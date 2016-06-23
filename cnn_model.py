@@ -55,25 +55,26 @@ if __name__ == '__main__':
     import numpy as np
     from scipy.fftpack import rfft
     import random
-    from utils import grid_plot
+    from utils import gplot_images, gplot_lines
     cwru_data = cwru.CWRU("12DriveEndFault", "1797", 384)
-    X_train, X_test = rfft(cwru_data.X_train), rfft(cwru_data.X_test)
+    X_train, X_test = cwru_data.X_train, cwru_data.X_test
+    X_train_rfft, X_test_rfft = rfft(X_train), rfft(X_test)
     y_train, y_test = cwru_data.y_train, cwru_data.y_test
-    sequence_length = cwru_data.length
-    nclasses = cwru_data.nclasses
-    titles = cwru_data.labels
 
-    cnn_model = cnnModel(sequence_length, nclasses)
-    cnn_model.train_model((X_train, y_train), (X_test, y_test))
+    cnn_model = cnnModel(cwru_data.length, cwru_data.nclasses)
+    cnn_model.train_model((X_train_rfft, y_train), (X_test_rfft, y_test))
+
+    from collections import defaultdict
+    indices = defaultdict(list)
 
     # group y_test
-    inds = [[] for i in range(nclasses)]
     for i, c in enumerate(y_test):
-        inds[c].append(i)
+        indices[c].append(i)
 
     # 3 random samples for each class
-    inds = sum([random.sample(ind, 3) for ind in inds], [])
+    inds = sum([random.sample(indices[c], 3) for c in indices], [])
     inputs = X_test[inds]
+    inputs_rfft = X_test_rfft[inds]
 
     # short titles
     short_titles = [title.replace('-Ball', 'b')
@@ -83,6 +84,12 @@ if __name__ == '__main__':
                     .replace('-InnerRace', 'in')
                     .replace('0.0', '')
                     .replace('Normal', 'no')
-                    for title in titles]
-    layer_output = cnn_model.get_layer_output(5, inputs)
-    grid_plot(layer_output, short_titles, 'images/pooling.png')
+                    for title in cwru_data.labels]
+    gplot_lines(inputs, short_titles, 'images/signals.png')
+    gplot_lines(inputs_rfft, short_titles, 'images/freqs.png')
+
+    layer_output = cnn_model.get_layer_output(5, inputs_rfft)
+    gplot_images(layer_output, short_titles, 'images/pooling.png')
+
+    layer_output_flatten = layer_output.reshape((layer_output.shape[0], -1))
+    gplot_lines(layer_output_flatten, short_titles, 'images/pooing_flatten.T.png')
